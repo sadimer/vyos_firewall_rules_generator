@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 import openstack
 import sys
+import json
 
 def main():
     import openstack
@@ -21,11 +22,7 @@ def main():
             continue
         print('Name discovered!')
         flag = True
-        with open('result.txt', 'w') as f:
-            f.write('del firewall name IPv4_' + name + '\n')
-            f.write('set firewall name IPv4_' + name + ' default-action ' + "'" + 'drop' + "'" +' \n')
-            f.write('del firewall ipv6-name IPv6_' + name + '\n')
-            f.write('set firewall ipv6-name IPv6_' + name + ' default-action ' + "'" + 'drop' + "'" +' \n')
+        firewall = {'firewall':{'ipv6-name IPv6_' + name:{'default-action':'drop'}, 'name IPv4_' + name:{'default-action':'drop'}}}
         group_id = group.id
         description = group.description
         security_group_rules = group.security_group_rules
@@ -45,43 +42,59 @@ def main():
             created_at = rule['created_at']
             updated_at = rule['updated_at']
             revision_number = rule['revision_number']
-            with open('result.txt', 'a') as f:
-                if ethertype == 'IPv4':
-                    rule_cnt_ipv4 += 1
-                    rule_cnt = rule_cnt_ipv4
-                    tmp = 'set firewall name IPv4_' + name + ' rule ' + str(rule_cnt)
-                elif ethertype == 'IPv6':
-                    rule_cnt_ipv6 += 1
-                    rule_cnt = rule_cnt_ipv6
-                    tmp = 'set firewall ipv6-name IPv6_' + name + ' rule ' + str(rule_cnt)
-                f.write(tmp + ' action ' + "'" + 'accept' + "'" + '\n')
+            if ethertype == 'IPv4':
+                rule_cnt_ipv4 += 1
+                rule_cnt = rule_cnt_ipv4
+                index = 'name IPv4_' + name
+                rule_index = 'rule ' + str(rule_cnt)
+            elif ethertype == 'IPv6':
+                rule_cnt_ipv6 += 1
+                rule_cnt = rule_cnt_ipv6
+                index = 'ipv6-name IPv6_' + name
+                rule_index = 'rule ' + str(rule_cnt)
+            firewall['firewall'][index][rule_index] = {}
+            if protocol == 'udp' or protocol == 'tcp':
                 if port_range_min != None and port_range_max != None:
                     if port_range_min == port_range_max:
                         port = port_range_min
                         if direction == 'ingress':
-                            f.write(tmp + ' destination port ' + "'" + str(port) + "'" + '\n')
+                            firewall['firewall'][index][rule_index]['destination port'] = str(port)
                         elif direction == 'egress':
-                            f.write(tmp + ' source port ' + "'" + str(port) + "'" + '\n')
+                            firewall['firewall'][index][rule_index]['source port'] = str(port)
                     else:
                         if direction == 'ingress':
-                            f.write(tmp + ' destination port ' + "'" + str(port_range_min) + '-' + str(port_range_max) + "'" + '\n')
+                            firewall['firewall'][index][rule_index]['destination port'] = str(port_range_min) + '-' + str(port_range_max)
                         elif direction == 'egress':
-                            f.write(tmp + ' source port ' + "'" + str(port_range_min) + '-' + str(port_range_max) + "'" + '\n')
-                if remote_ip_prefix != None:
-                    if direction == 'ingress':
-                        f.write(tmp + ' destination address ' + "'" + remote_ip_prefix + "'" + '\n')
-                    elif direction == 'egress':
-                        f.write(tmp + ' source address ' + "'" + remote_ip_prefix + "'" + '\n' )
-                if protocol != None:
-                    f.write(tmp + ' protocol ' + "'" + protocol + "'" + '\n')
-                else:
-                    f.write(tmp + ' protocol ' + "'" + 'all' + "'" + '\n')
-                if description != None:
-                    f.write(tmp + ' description ' + "'" + description + "'" + '\n')
-                    
+                            firewall['firewall'][index][rule_index]['source port'] = str(port_range_min) + '-' + str(port_range_max)
+            if remote_ip_prefix != None:
+                if direction == 'ingress':
+                    firewall['firewall'][index][rule_index]['destination address'] = remote_ip_prefix
+                elif direction == 'egress':
+                    firewall['firewall'][index][rule_index]['source address'] = remote_ip_prefix
+            if protocol != None:
+                firewall['firewall'][index][rule_index]['protocol'] = protocol
+            else:
+                firewall['firewall'][index][rule_index]['protocol'] = 'all'
+            if description != None:
+                firewall['firewall'][index][rule_index]['description'] = '"' + description + '"'
         break
     if flag == False:
         print('Entered bad name!')
+        sys.exit(1)
+    with open("config.json", "w") as write_file:
+        json.dump(firewall, write_file)
+    with open("config.json", "r") as read_file:
+        line = str(json.load(read_file))
+        line = line.replace(':', '')
+        line = line.replace("'", '')
+        line = line.replace(',', '')
+        line = line.replace('{', '', 1)
+        line = line[::-1]
+        line = line.replace('}', '', 1)
+        line = line[::-1]
+    with open("result.txt", "w") as result_file:
+        result_file.write(line)
+    print('Done!')
         
 if __name__ == '__main__':
     main()
