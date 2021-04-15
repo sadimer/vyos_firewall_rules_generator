@@ -4,7 +4,6 @@ import sys
 import json
 
 def main():
-    import openstack
     openstack.enable_logging(debug=False)
     try:
         conn = openstack.connect(cloud='openstack')
