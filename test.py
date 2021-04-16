@@ -52,24 +52,49 @@ def main():
                 index = 'ipv6-name IPv6_' + name
                 rule_index = 'rule ' + str(rule_cnt)
             firewall['firewall'][index][rule_index] = {}
+            firewall['firewall'][index][rule_index]['action'] = 'accept'
             if protocol == 'udp' or protocol == 'tcp':
                 if port_range_min != None and port_range_max != None:
                     if port_range_min == port_range_max:
                         port = port_range_min
                         if direction == 'ingress':
-                            firewall['firewall'][index][rule_index]['destination port'] = str(port)
+                            try:
+                                firewall['firewall'][index][rule_index]['destination']['port'] = str(port)
+                            except:
+                                firewall['firewall'][index][rule_index]['destination'] = {}
+                                firewall['firewall'][index][rule_index]['destination']['port'] = str(port)
                         elif direction == 'egress':
-                            firewall['firewall'][index][rule_index]['source port'] = str(port)
+                            try:
+                                firewall['firewall'][index][rule_index]['source']['port'] = str(port)
+                            except:
+                                firewall['firewall'][index][rule_index]['source'] = {}
+                                firewall['firewall'][index][rule_index]['source']['port'] = str(port)
                     else:
                         if direction == 'ingress':
-                            firewall['firewall'][index][rule_index]['destination port'] = str(port_range_min) + '-' + str(port_range_max)
+                            try:
+                                firewall['firewall'][index][rule_index]['destination']['port'] = str(port_range_min) + '-' + str(port_range_max)
+                            except:
+                                firewall['firewall'][index][rule_index]['destination'] = {}
+                                firewall['firewall'][index][rule_index]['destination']['port'] = str(port_range_min) + '-' + str(port_range_max)
                         elif direction == 'egress':
-                            firewall['firewall'][index][rule_index]['source port'] = str(port_range_min) + '-' + str(port_range_max)
+                            try:
+                                firewall['firewall'][index][rule_index]['source']['port'] = str(port_range_min) + '-' + str(port_range_max)
+                            except:
+                                firewall['firewall'][index][rule_index]['source'] = {}
+                                firewall['firewall'][index][rule_index]['source']['port'] = str(port_range_min) + '-' + str(port_range_max)
             if remote_ip_prefix != None:
                 if direction == 'ingress':
-                    firewall['firewall'][index][rule_index]['destination address'] = remote_ip_prefix
+                    try:
+                        firewall['firewall'][index][rule_index]['destination']['address'] = remote_ip_prefix
+                    except:
+                        firewall['firewall'][index][rule_index]['destination'] = {}
+                        firewall['firewall'][index][rule_index]['destination']['address'] = remote_ip_prefix
                 elif direction == 'egress':
-                    firewall['firewall'][index][rule_index]['source address'] = remote_ip_prefix
+                    try:
+                        firewall['firewall'][index][rule_index]['source']['address'] = remote_ip_prefix
+                    except:
+                        firewall['firewall'][index][rule_index]['source'] = {}
+                        firewall['firewall'][index][rule_index]['source']['address'] = remote_ip_prefix
             if protocol != None:
                 firewall['firewall'][index][rule_index]['protocol'] = protocol
             else:
@@ -83,14 +108,13 @@ def main():
     with open("config.json", "w") as write_file:
         json.dump(firewall, write_file)
     with open("config.json", "r") as read_file:
-        line = str(json.load(read_file))
+        res = json.load(read_file)
+        line = 'firewall ' + str(json.dumps(res['firewall'], indent = 4))
         line = line.replace(':', '')
-        line = line.replace("'", '')
+        line = line.replace('"', '')
+        line = line.replace('\\', '"')
         line = line.replace(',', '')
-        line = line.replace('{', '', 1)
-        line = line[::-1]
-        line = line.replace('}', '', 1)
-        line = line[::-1]
+        print(line)
     with open("result.txt", "w") as result_file:
         result_file.write(line)
     print('Done!')
