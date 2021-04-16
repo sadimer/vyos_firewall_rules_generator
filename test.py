@@ -2,6 +2,7 @@
 import openstack
 import sys
 import json
+import os
 
 def main():
     openstack.enable_logging(debug=False)
@@ -53,6 +54,43 @@ def main():
                 rule_index = 'rule ' + str(rule_cnt)
             firewall['firewall'][index][rule_index] = {}
             firewall['firewall'][index][rule_index]['action'] = 'accept'
+            if remote_group_id != None:
+                new_flag = False
+                for group in conn.network.security_groups():
+                    new_name = group.name
+                    new_group_id = group.id
+                    if new_group_id != remote_group_id:
+                        continue
+                    new_flag = True
+                    new_description = group.description
+                    new_security_group_rules = group.security_group_rules
+                    for rule in new_security_group_rules:
+                        new_rule_id = rule['id']
+                        if new_rule_id == rule_id:
+                            continue
+                        new_direction = rule['direction']
+                        new_ethertype = rule['ethertype']
+                        new_protocol = rule['protocol']
+                        new_port_range_min = rule['port_range_min']
+                        new_port_range_max = rule['port_range_max']
+                        new_remote_ip_prefix = rule['remote_ip_prefix']
+                        new_remote_group_id = rule['remote_group_id']
+                        new_description = rule['description']
+                        new_tags = rule['tags']
+                        new_created_at = rule['created_at']
+                        new_updated_at = rule['updated_at']
+                        new_revision_number = rule['revision_number']
+                        if new_direction == direction and new_ethertype == ethertype and (new_protocol == protocol or new_protocol == None):
+                            if port_range_min == None and port_range_max == None:
+                                port_range_min = new_port_range_min
+                                port_range_max = new_port_range_max
+                                remote_ip_prefix = new_remote_ip_prefix
+                            elif new_port_range_min == None and new_port_range_max == None:
+                                remote_ip_prefix = new_remote_ip_prefix
+                            elif port_range_min >= new_port_range_min and port_range_max <= new_port_range_max:
+                                remote_ip_prefix = new_remote_ip_prefix
+                if new_flag == False:
+                    sys.exit(1)
             if protocol == 'udp' or protocol == 'tcp':
                 if port_range_min != None and port_range_max != None:
                     if port_range_min == port_range_max:
@@ -115,6 +153,7 @@ def main():
         line = line.replace('\\', '"')
         line = line.replace(',', '')
         print(line)
+        os.remove('config.json')
     with open("result.txt", "w") as result_file:
         result_file.write(line)
     print('Done!')
