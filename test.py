@@ -2,7 +2,6 @@
 import openstack
 import sys
 import json
-import os
 
 def main():
     openstack.enable_logging(debug=False)
@@ -22,7 +21,7 @@ def main():
             continue
         print('Name discovered!')
         flag = True
-        firewall = {'firewall':{'ipv6-name IPv6_' + name:{'default-action':'drop'}, 'name IPv4_' + name:{'default-action':'drop'}}}
+        firewall = {'ipv6-name IPv6_' + name:{'default-action':'drop'}, 'name IPv4_' + name:{'default-action':'drop'}}
         group_id = group.id
         description = group.description
         security_group_rules = group.security_group_rules
@@ -93,56 +92,56 @@ def main():
                                 rule_cnt = rule_cnt_ipv6
                                 index = 'ipv6-name IPv6_' + name
                             rule_index = 'rule ' + str(rule_cnt)
-                            firewall['firewall'][index][rule_index] = {}
-                            firewall['firewall'][index][rule_index]['action'] = 'accept'
+                            firewall[index][rule_index] = {}
+                            firewall[index][rule_index]['action'] = 'accept'
                             if res_remote_ip_prefix != None:
                                 if direction == 'egress':
                                     try:
-                                        firewall['firewall'][index][rule_index]['destination']['address'] = res_remote_ip_prefix
+                                        firewall[index][rule_index]['destination']['address'] = res_remote_ip_prefix
                                     except:
-                                        firewall['firewall'][index][rule_index]['destination'] = {}
-                                        firewall['firewall'][index][rule_index]['destination']['address'] = res_remote_ip_prefix
+                                        firewall[index][rule_index]['destination'] = {}
+                                        firewall[index][rule_index]['destination']['address'] = res_remote_ip_prefix
                                 elif direction == 'ingress':
                                     try:
-                                        firewall['firewall'][index][rule_index]['source']['address'] = res_remote_ip_prefix
+                                        firewall[index][rule_index]['source']['address'] = res_remote_ip_prefix
                                     except:
-                                        firewall['firewall'][index][rule_index]['source'] = {}
-                                        firewall['firewall'][index][rule_index]['source']['address'] = res_remote_ip_prefix
+                                        firewall[index][rule_index]['source'] = {}
+                                        firewall[index][rule_index]['source']['address'] = res_remote_ip_prefix
                             if description != None:
-                                firewall['firewall'][index][rule_index]['description'] = '"' + description + '"'
+                                firewall[index][rule_index]['description'] = '"' + description + '"'
                             if protocol != None:
-                                firewall['firewall'][index][rule_index]['protocol'] = protocol
+                                firewall[index][rule_index]['protocol'] = protocol
                             else:
-                                firewall['firewall'][index][rule_index]['protocol'] = 'all'
+                                firewall[index][rule_index]['protocol'] = 'all'
                             if protocol == 'udp' or protocol == 'tcp':
                                 if res_port_range_min != None and res_port_range_max != None:
                                     if res_port_range_min == res_port_range_max:
                                         port = res_port_range_min
                                         if direction == 'egress':
                                             try:
-                                                firewall['firewall'][index][rule_index]['destination']['port'] = str(port)
+                                                firewall[index][rule_index]['destination']['port'] = str(port)
                                             except:
-                                                firewall['firewall'][index][rule_index]['destination'] = {}
-                                                firewall['firewall'][index][rule_index]['destination']['port'] = str(port)
+                                                firewall[index][rule_index]['destination'] = {}
+                                                firewall[index][rule_index]['destination']['port'] = str(port)
                                         elif direction == 'ingress':
                                             try:
-                                                firewall['firewall'][index][rule_index]['source']['port'] = str(port)
+                                                firewall[index][rule_index]['source']['port'] = str(port)
                                             except:
-                                                firewall['firewall'][index][rule_index]['source'] = {}
-                                                firewall['firewall'][index][rule_index]['source']['port'] = str(port)
+                                                firewall[index][rule_index]['source'] = {}
+                                                firewall[index][rule_index]['source']['port'] = str(port)
                                     else:
                                         if direction == 'egress':
                                             try:
-                                                firewall['firewall'][index][rule_index]['destination']['port'] = str(res_port_range_min) + '-' + str(res_port_range_max)
+                                                firewall[index][rule_index]['destination']['port'] = str(res_port_range_min) + '-' + str(res_port_range_max)
                                             except:
-                                                firewall['firewall'][index][rule_index]['destination'] = {}
-                                                firewall['firewall'][index][rule_index]['destination']['port'] = str(res_port_range_min) + '-' + str(res_port_range_max)
+                                                firewall[index][rule_index]['destination'] = {}
+                                                firewall[index][rule_index]['destination']['port'] = str(res_port_range_min) + '-' + str(res_port_range_max)
                                         elif direction == 'ingress':
                                             try:
-                                                firewall['firewall'][index][rule_index]['source']['port'] = str(res_port_range_min) + '-' + str(res_port_range_max)
+                                                firewall[index][rule_index]['source']['port'] = str(res_port_range_min) + '-' + str(res_port_range_max)
                                             except:
-                                                firewall['firewall'][index][rule_index]['source'] = {}
-                                                firewall['firewall'][index][rule_index]['source']['port'] = str(res_port_range_min) + '-' + str(res_port_range_max)
+                                                firewall[index][rule_index]['source'] = {}
+                                                firewall[index][rule_index]['source']['port'] = str(res_port_range_min) + '-' + str(res_port_range_max)
                 if new_flag == False:
                     sys.exit(1)
                 else:
@@ -156,79 +155,73 @@ def main():
                 rule_cnt = rule_cnt_ipv6
                 index = 'ipv6-name IPv6_' + name
             rule_index = 'rule ' + str(rule_cnt)
-            firewall['firewall'][index][rule_index] = {}
-            firewall['firewall'][index][rule_index]['action'] = 'accept'
+            firewall[index][rule_index] = {}
+            firewall[index][rule_index]['action'] = 'accept'
             if protocol == 'udp' or protocol == 'tcp':
                 if port_range_min != None and port_range_max != None:
                     if port_range_min == port_range_max:
                         port = port_range_min
                         if direction == 'egress':
                             try:
-                                firewall['firewall'][index][rule_index]['destination']['port'] = str(port)
+                                firewall[index][rule_index]['destination']['port'] = str(port)
                             except:
-                                firewall['firewall'][index][rule_index]['destination'] = {}
-                                firewall['firewall'][index][rule_index]['destination']['port'] = str(port)
+                                firewall[index][rule_index]['destination'] = {}
+                                firewall[index][rule_index]['destination']['port'] = str(port)
                         elif direction == 'ingress':
                             try:
-                                firewall['firewall'][index][rule_index]['source']['port'] = str(port)
+                                firewall[index][rule_index]['source']['port'] = str(port)
                             except:
-                                firewall['firewall'][index][rule_index]['source'] = {}
-                                firewall['firewall'][index][rule_index]['source']['port'] = str(port)
+                                firewall[index][rule_index]['source'] = {}
+                                firewall[index][rule_index]['source']['port'] = str(port)
                     else:
                         if direction == 'egress':
                             try:
-                                firewall['firewall'][index][rule_index]['destination']['port'] = str(port_range_min) + '-' + str(port_range_max)
+                                firewall[index][rule_index]['destination']['port'] = str(port_range_min) + '-' + str(port_range_max)
                             except:
-                                firewall['firewall'][index][rule_index]['destination'] = {}
-                                firewall['firewall'][index][rule_index]['destination']['port'] = str(port_range_min) + '-' + str(port_range_max)
+                                firewall[index][rule_index]['destination'] = {}
+                                firewall[index][rule_index]['destination']['port'] = str(port_range_min) + '-' + str(port_range_max)
                         elif direction == 'ingress':
                             try:
-                                firewall['firewall'][index][rule_index]['source']['port'] = str(port_range_min) + '-' + str(port_range_max)
+                                firewall[index][rule_index]['source']['port'] = str(port_range_min) + '-' + str(port_range_max)
                             except:
-                                firewall['firewall'][index][rule_index]['source'] = {}
-                                firewall['firewall'][index][rule_index]['source']['port'] = str(port_range_min) + '-' + str(port_range_max)
+                                firewall[index][rule_index]['source'] = {}
+                                firewall[index][rule_index]['source']['port'] = str(port_range_min) + '-' + str(port_range_max)
             if remote_ip_prefix != None:
                 if direction == 'egress':
                     try:
-                        firewall['firewall'][index][rule_index]['destination']['address'] = remote_ip_prefix
+                        firewall[index][rule_index]['destination']['address'] = remote_ip_prefix
                     except:
-                        firewall['firewall'][index][rule_index]['destination'] = {}
-                        firewall['firewall'][index][rule_index]['destination']['address'] = remote_ip_prefix
+                        firewall[index][rule_index]['destination'] = {}
+                        firewall[index][rule_index]['destination']['address'] = remote_ip_prefix
                 elif direction == 'ingress':
                     try:
-                        firewall['firewall'][index][rule_index]['source']['address'] = remote_ip_prefix
+                        firewall[index][rule_index]['source']['address'] = remote_ip_prefix
                     except:
-                        firewall['firewall'][index][rule_index]['source'] = {}
-                        firewall['firewall'][index][rule_index]['source']['address'] = remote_ip_prefix
+                        firewall[index][rule_index]['source'] = {}
+                        firewall[index][rule_index]['source']['address'] = remote_ip_prefix
             if protocol != None:
-                firewall['firewall'][index][rule_index]['protocol'] = protocol
+                firewall[index][rule_index]['protocol'] = protocol
             else:
-                firewall['firewall'][index][rule_index]['protocol'] = 'all'
+                firewall[index][rule_index]['protocol'] = 'all'
             if description != None:
-                firewall['firewall'][index][rule_index]['description'] = '"' + description + '"'
+                firewall[index][rule_index]['description'] = '"' + description + '"'
         break
         
     if flag == False:
         print('Entered bad name!')
         sys.exit(1)
-    with open("config.json", "w") as write_file:
-        json.dump(firewall, write_file)
-    with open("config.json", "r") as read_file:
-        res = json.load(read_file)
-        line = 'firewall ' + str(json.dumps(res['firewall'], indent = 4))
-        line = line.replace(':', '')
-        line = line.replace('"', '')
-        line = line.replace('\\', '"')
-        line = line.replace(',', '')
-        print(line)
-        os.remove('config.json')
+    line = 'firewall ' + str(json.dumps(firewall, indent = 4))
+    line = line.replace(':', '')
+    line = line.replace('"', '')
+    line = line.replace('\\', '"')
+    line = line.replace(',', '')
+    #print(line)
     with open("result.txt", "w") as result_file:
-        result_file.write(line)
-        result_file.write('\n// Warning: Do not remove the following line.')
-        result_file.write('\n// vyos-config-version: "bgp@1:broadcast-relay@1:cluster@1:config-management@1:conntrack@2:conntrack-sync@1:dhcp-relay@2:dhcp-server@5:dhcpv6-server@1:dns-forwarding@3:firewall@5:https@2:interfaces@20:ipoe-server@1:ipsec@5:isis@1:l2tp@3:lldp@1:mdns@1:nat@5:nat66@1:ntp@1:pppoe-server@5:pptp@2:qos@1:quagga@9:rpki@1:salt@1:snmp@2:ssh@2:sstp@3:system@20:vrf@2:vrrp@2:vyos-accel-ppp@2:wanloadbalance@3:webproxy@2:zone-policy@1"')
-        result_file.write('\n// Release version: 1.4-rolling-202104132216')
+        with open("migration_details.txt", "r") as add_file:
+            result_file.write(line + '\n')
+            for line in add_file:
+                result_file.write(line)
     print('Done!')
         
 if __name__ == '__main__':
     main()
-
