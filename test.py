@@ -2,6 +2,12 @@
 import openstack
 import sys
 import json
+import os
+
+#при использовании взять свои параметры из файла /config/config.boot
+config_version = '\n// vyos-config-version: "bgp@1:broadcast-relay@1:cluster@1:config-management@1:conntrack@2:conntrack-sync@1:dhcp-relay@2:dhcp-server@5:dhcpv6-server@1:dns-forwarding@3:firewall@5:https@2:interfaces@20:ipoe-server@1:ipsec@5:isis@1:l2tp@3:lldp@1:mdns@1:nat@5:nat66@1:ntp@1:pppoe-server@5:pptp@2:qos@1:quagga@9:rpki@1:salt@1:snmp@2:ssh@2:sstp@3:system@20:vrf@2:vrrp@2:vyos-accel-ppp@2:wanloadbalance@3:webproxy@2:zone-policy@1"'
+vyos_version = '\n// Release version: 1.4-rolling-202104132216'
+#результат - result.txt - файл конфигурации файрвола vyos, установка производится командой # merge result.txt 
 
 def main():
     openstack.enable_logging(debug=False)
@@ -21,12 +27,18 @@ def main():
             continue
         print('Name discovered!')
         flag = True
-        firewall = {'ipv6-name IPv6_' + name:{'default-action':'drop'}, 'name IPv4_' + name:{'default-action':'drop'}}
+        name = name[0:15]
+        firewall = {'ipv6-name ' + 'in_' + 'IPv6_' + name:{'default-action':'drop'},
+        'name ' + 'in_' + 'IPv4_' + name:{'default-action':'drop'},
+        'ipv6-name ' + 'out_' + 'IPv6_' + name:{'default-action':'drop'},
+        'name ' + 'out_' + 'IPv4_' + name:{'default-action':'drop'}}
         group_id = group.id
         description = group.description
         security_group_rules = group.security_group_rules
-        rule_cnt_ipv4 = 0
-        rule_cnt_ipv6 = 0
+        rule_cnt_ipv4_in = 0
+        rule_cnt_ipv6_in = 0
+        rule_cnt_ipv4_out = 0
+        rule_cnt_ipv6_out = 0
         for rule in security_group_rules:
             rule_id = rule['id']
             direction = rule['direction']
@@ -67,7 +79,17 @@ def main():
                         new_created_at = rule['created_at']
                         new_updated_at = rule['updated_at']
                         new_revision_number = rule['revision_number']
-                        if new_direction == direction and new_ethertype == ethertype and new_remote_group_id == None and (new_protocol == protocol or new_protocol == None):
+                        if new_direction == direction and new_ethertype == ethertype and new_remote_group_id == None:
+                            res_port_range_min = None
+                            res_port_range_max = None
+                            res_remote_ip_prefix = None
+                            res_protocol = None
+                            if new_protocol == protocol or new_protocol == None:
+                                res_protocol = protocol
+                            elif protocol == None:
+                                res_protocol = new_protocol
+                            else:
+                                continue
                             res_port_range_min = None
                             res_port_range_max = None
                             res_remote_ip_prefix = None
@@ -83,14 +105,25 @@ def main():
                                 res_remote_ip_prefix = new_remote_ip_prefix
                                 res_port_range_min = port_range_min
                                 res_port_range_max = port_range_max
+                            name = name[0:15]
                             if ethertype == 'IPv4':
-                                rule_cnt_ipv4 += 1
-                                rule_cnt = rule_cnt_ipv4
-                                index = 'name IPv4_' + name
+                                if direction == 'ingress':
+                                    index = 'name ' + 'in_'+ 'IPv4_' + name
+                                    rule_cnt_ipv4_in += 1
+                                    rule_cnt = rule_cnt_ipv4_in
+                                if direction == 'egress':
+                                    index = 'name ' + 'out_'+ 'IPv4_' + name
+                                    rule_cnt_ipv4_out += 1
+                                    rule_cnt = rule_cnt_ipv4_out
                             elif ethertype == 'IPv6':
-                                rule_cnt_ipv6 += 1
-                                rule_cnt = rule_cnt_ipv6
-                                index = 'ipv6-name IPv6_' + name
+                                if direction == 'ingress':
+                                    index = 'ipv6-name ' + 'in_'+ 'IPv6_' + name
+                                    rule_cnt_ipv6_in += 1
+                                    rule_cnt = rule_cnt_ipv6_in
+                                if direction == 'egress':
+                                    index = 'ipv6-name ' + 'out_'+ 'IPv6_' + name
+                                    rule_cnt_ipv6_out += 1
+                                    rule_cnt = rule_cnt_ipv6_out
                             rule_index = 'rule ' + str(rule_cnt)
                             firewall[index][rule_index] = {}
                             firewall[index][rule_index]['action'] = 'accept'
@@ -109,11 +142,11 @@ def main():
                                         firewall[index][rule_index]['source']['address'] = res_remote_ip_prefix
                             if description != None:
                                 firewall[index][rule_index]['description'] = '"' + description + '"'
-                            if protocol != None:
-                                firewall[index][rule_index]['protocol'] = protocol
+                            if res_protocol != None:
+                                firewall[index][rule_index]['protocol'] = res_protocol
                             else:
                                 firewall[index][rule_index]['protocol'] = 'all'
-                            if protocol == 'udp' or protocol == 'tcp':
+                            if res_protocol == 'udp' or res_protocol == 'tcp':
                                 if res_port_range_min != None and res_port_range_max != None:
                                     if res_port_range_min == res_port_range_max:
                                         port = res_port_range_min
@@ -146,14 +179,25 @@ def main():
                     sys.exit(1)
                 else:
                     continue
+            name = name[0:15]
             if ethertype == 'IPv4':
-                rule_cnt_ipv4 += 1
-                rule_cnt = rule_cnt_ipv4
-                index = 'name IPv4_' + name
+                if direction == 'ingress':
+                    index = 'name ' + 'in_'+ 'IPv4_' + name
+                    rule_cnt_ipv4_in += 1
+                    rule_cnt = rule_cnt_ipv4_in
+                if direction == 'egress':
+                    index = 'name ' 'out_'+ 'IPv4_' + name
+                    rule_cnt_ipv4_out += 1
+                    rule_cnt = rule_cnt_ipv4_out
             elif ethertype == 'IPv6':
-                rule_cnt_ipv6 += 1
-                rule_cnt = rule_cnt_ipv6
-                index = 'ipv6-name IPv6_' + name
+                if direction == 'ingress':
+                    index = 'ipv6-name ' + 'in_'+ 'IPv6_' + name
+                    rule_cnt_ipv6_in += 1
+                    rule_cnt = rule_cnt_ipv6_in
+                if direction == 'egress':
+                    index = 'ipv6-name ' + 'out_'+ 'IPv6_' + name
+                    rule_cnt_ipv6_out += 1
+                    rule_cnt = rule_cnt_ipv6_out
             rule_index = 'rule ' + str(rule_cnt)
             firewall[index][rule_index] = {}
             firewall[index][rule_index]['action'] = 'accept'
@@ -217,10 +261,9 @@ def main():
     line = line.replace(',', '')
     #print(line)
     with open("result.txt", "w") as result_file:
-        with open("migration_details.txt", "r") as add_file:
-            result_file.write(line + '\n')
-            for line in add_file:
-                result_file.write(line)
+        result_file.write(line)
+        result_file.write(config_version)
+        result_file.write(vyos_version)
     print('Done!')
         
 if __name__ == '__main__':
