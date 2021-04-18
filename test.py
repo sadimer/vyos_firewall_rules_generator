@@ -9,11 +9,14 @@ config_version = '\n// vyos-config-version: "bgp@1:broadcast-relay@1:cluster@1:c
 vyos_version = '\n// Release version: 1.4-rolling-202104132216'
 #результат - result.txt - файл конфигурации файрвола vyos, установка производится командой # merge result.txt 
 
+
+fixed_name = None
+
 rule_cnt_ipv4_in = 0
 rule_cnt_ipv6_in = 0
 rule_cnt_ipv4_out = 0
 rule_cnt_ipv6_out = 0
-
+ 
 def create_index(ethertype, direction, name):
     global rule_cnt_ipv4_in
     global rule_cnt_ipv6_in
@@ -91,11 +94,100 @@ def set_protocol(protocol, firewall, index, rule_index):
     else:
         firewall[index][rule_index]['protocol'] = 'all'
         
-def set_description(description, firewall, index, rule_index):
+def set_description(description, firewall, index, rule_index, name):
     if description != None:
-        firewall[index][rule_index]['description'] = '"' + description + '"'
-        
+        firewall[index][rule_index]['description'] = '"' + description + 'from ' + name + '"'
+
+def process(conn, search_name = None, search_id = None, search_flag = False, old_rule = None, old_group = None, old_firewall = None):
+    global fixed_name
+    flag = False
+    for group in conn.network.security_groups():
+        name = group.name
+        group_id = group.id
+        if search_flag == False:
+            if name != search_name:
+                continue
+            print('Name discovered!')
+        else:
+            if group_id != search_id:
+                continue
+        flag = True
+        name = name[0:15]
+        if search_flag == False:
+            firewall = {'ipv6-name ' + 'in_' + 'IPv6_' + name:{'default-action':'drop'},
+            'name ' + 'in_' + 'IPv4_' + name:{'default-action':'drop'},
+            'ipv6-name ' + 'out_' + 'IPv6_' + name:{'default-action':'drop'},
+            'name ' + 'out_' + 'IPv4_' + name:{'default-action':'drop'}}
+        if old_group != None and group_id == old_group.id:
+            continue
+        description = group.description
+        security_group_rules = group.security_group_rules
+        for rule in security_group_rules:
+            rule_id = rule['id']
+            if old_rule != None and rule_id == old_rule['id']:
+                continue
+            direction = rule['direction']
+            ethertype = rule['ethertype']
+            protocol = rule['protocol']
+            port_range_min = rule['port_range_min']
+            port_range_max = rule['port_range_max']
+            remote_ip_prefix = rule['remote_ip_prefix']
+            remote_group_id = rule['remote_group_id']
+            description = rule['description']
+            if remote_group_id == group_id:
+                continue
+            if remote_group_id != None:
+                firewall = process(conn, name, search_id = remote_group_id, search_flag = True, old_rule = rule, old_group = group, old_firewall = firewall)
+                continue
+            if search_flag == False or (direction == old_rule['direction'] and ethertype == old_rule['ethertype'] and remote_group_id == None):
+                if search_flag == True:
+                    res_port_range_min = None
+                    res_port_range_max = None
+                    res_remote_ip_prefix = None
+                    res_protocol = None
+                    if old_rule['protocol'] == None:
+                        res_protocol = protocol
+                    elif protocol == old_rule['protocol'] or protocol == None:
+                        res_protocol = old_rule['protocol']
+                    else:
+                        continue
+                    if old_rule['port_range_min'] == None and old_rule['port_range_max'] == None:
+                        res_port_range_min = port_range_min
+                        res_port_range_max = port_range_max
+                        res_remote_ip_prefix = remote_ip_prefix
+                    elif port_range_min == None and port_range_max == None:
+                        res_remote_ip_prefix = remote_ip_prefix
+                        res_port_range_min = old_rule['port_range_min']
+                        res_port_range_max = old_rule['port_range_max']
+                    elif old_rule['port_range_min'] >= port_range_min and old_rule['port_range_max'] <= port_range_max:
+                        res_remote_ip_prefix = remote_ip_prefix
+                        res_port_range_min = old_rule['port_range_min']
+                        res_port_range_max = old_rule['port_range_max']
+                    else:
+                        continue
+                    protocol = res_protocol
+                    remote_ip_prefix = res_remote_ip_prefix
+                    port_range_min = res_port_range_min 
+                    port_range_max = res_port_range_max
+                fixed_name = fixed_name[0:15]
+                rule_cnt, index = create_index(ethertype, direction, fixed_name)
+                rule_index = 'rule ' + str(rule_cnt)
+                if search_flag == True:
+                    firewall = old_firewall
+                firewall[index][rule_index] = {}
+                firewall[index][rule_index]['action'] = 'accept'
+                set_ports(port_range_min, port_range_max, protocol, firewall, index, rule_index, direction)
+                set_ip(remote_ip_prefix, firewall, index, rule_index, direction)
+                set_protocol(protocol, firewall, index, rule_index)
+                set_description(description, firewall, index, rule_index, name)
+        break
+    if flag == False:
+        print('Entered bad name!')
+        sys.exit(1)
+    return firewall
+    
 def main():
+    global fixed_name
     openstack.enable_logging(debug=False)
     try:
         conn = openstack.connect(cloud='openstack')
@@ -106,109 +198,14 @@ def main():
     
     flag = False
     print('Please enter name of security group:')
-    search_name = input();
-    for group in conn.network.security_groups():
-        name = group.name
-        if name != search_name:
-            continue
-        print('Name discovered!')
-        flag = True
-        name = name[0:15]
-        firewall = {'ipv6-name ' + 'in_' + 'IPv6_' + name:{'default-action':'drop'},
-        'name ' + 'in_' + 'IPv4_' + name:{'default-action':'drop'},
-        'ipv6-name ' + 'out_' + 'IPv6_' + name:{'default-action':'drop'},
-        'name ' + 'out_' + 'IPv4_' + name:{'default-action':'drop'}}
-        group_id = group.id
-        description = group.description
-        security_group_rules = group.security_group_rules
-        for rule in security_group_rules:
-            rule_id = rule['id']
-            direction = rule['direction']
-            ethertype = rule['ethertype']
-            protocol = rule['protocol']
-            port_range_min = rule['port_range_min']
-            port_range_max = rule['port_range_max']
-            remote_ip_prefix = rule['remote_ip_prefix']
-            remote_group_id = rule['remote_group_id']
-            description = rule['description']
-            if remote_group_id != None:
-                new_flag = False
-                for group in conn.network.security_groups():
-                    new_name = group.name
-                    new_group_id = group.id
-                    if new_group_id != remote_group_id:
-                        continue
-                    new_flag = True
-                    new_description = group.description
-                    new_security_group_rules = group.security_group_rules
-                    for rule in new_security_group_rules:
-                        new_rule_id = rule['id']
-                        if new_rule_id == rule_id:
-                            continue
-                        new_direction = rule['direction']
-                        new_ethertype = rule['ethertype']
-                        new_protocol = rule['protocol']
-                        new_port_range_min = rule['port_range_min']
-                        new_port_range_max = rule['port_range_max']
-                        new_remote_ip_prefix = rule['remote_ip_prefix']
-                        new_remote_group_id = rule['remote_group_id']
-                        new_description = rule['description']
-                        if new_direction == direction and new_ethertype == ethertype and new_remote_group_id == None:
-                            res_port_range_min = None
-                            res_port_range_max = None
-                            res_remote_ip_prefix = None
-                            res_protocol = None
-                            if protocol == None:
-                                res_protocol = new_protocol
-                            elif new_protocol == protocol or new_protocol == None:
-                                res_protocol = protocol
-                            else:
-                                continue
-                            if port_range_min == None and port_range_max == None:
-                                res_port_range_min = new_port_range_min
-                                res_port_range_max = new_port_range_max
-                                res_remote_ip_prefix = new_remote_ip_prefix
-                            elif new_port_range_min == None and new_port_range_max == None:
-                                res_remote_ip_prefix = new_remote_ip_prefix
-                                res_port_range_min = port_range_min
-                                res_port_range_max = port_range_max
-                            elif port_range_min >= new_port_range_min and port_range_max <= new_port_range_max:
-                                res_remote_ip_prefix = new_remote_ip_prefix
-                                res_port_range_min = port_range_min
-                                res_port_range_max = port_range_max
-                            name = name[0:15]
-                            rule_cnt, index = create_index(ethertype, direction, name)
-                            rule_index = 'rule ' + str(rule_cnt)
-                            firewall[index][rule_index] = {}
-                            firewall[index][rule_index]['action'] = 'accept'
-                            set_ip(res_remote_ip_prefix, firewall, index, rule_index, direction)
-                            set_description(description, firewall, index, rule_index)
-                            set_protocol(res_protocol, firewall, index, rule_index)
-                            set_ports(res_port_range_min, res_port_range_max, res_protocol, firewall, index, rule_index, direction)
-                if new_flag == False:
-                    sys.exit(1)
-                else:
-                    continue
-            name = name[0:15]
-            rule_cnt, index = create_index(ethertype, direction, name)
-            rule_index = 'rule ' + str(rule_cnt)
-            firewall[index][rule_index] = {}
-            firewall[index][rule_index]['action'] = 'accept'
-            set_ports(port_range_min, port_range_max, protocol, firewall, index, rule_index, direction)
-            set_ip(remote_ip_prefix, firewall, index, rule_index, direction)
-            set_protocol(protocol, firewall, index, rule_index)
-            set_description(description, firewall, index, rule_index)
-        break
-        
-    if flag == False:
-        print('Entered bad name!')
-        sys.exit(1)
+    search_name = input()
+    fixed_name = search_name
+    firewall = process(conn, search_name)
     line = 'firewall ' + str(json.dumps(firewall, indent = 4))
     line = line.replace(':', '')
     line = line.replace('"', '')
     line = line.replace('\\', '"')
     line = line.replace(',', '')
-    print(line)
     with open("result.txt", "w") as result_file:
         result_file.write(line)
         result_file.write(config_version)
