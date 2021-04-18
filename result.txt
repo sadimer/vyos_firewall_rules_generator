@@ -11,34 +11,34 @@ firewall {
                 address 0.0.0.0/0
             }
             protocol tcp
-            description ""
+            description "from sadimer"
         }
         rule 2 {
             action accept
             source {
-                address 0.0.0.0/0
-                port 100
+                port 55-57
+                address 192.168.202.4/8
             }
-            description ""
             protocol tcp
+            description "from sadimer_2"
         }
         rule 3 {
             action accept
             source {
-                address 192.168.202.4/8
-                port 55-57
+                port 22
+                address 0.0.0.0/0
             }
-            description ""
             protocol tcp
+            description "from sadimer_2"
         }
         rule 4 {
             action accept
             source {
+                port 66
                 address 0.0.0.0/0
-                port 22
             }
-            description ""
             protocol tcp
+            description "from default"
         }
     }
     ipv6-name out_IPv6_sadimer {
@@ -52,7 +52,7 @@ firewall {
                 address 0.0.0.0/0
             }
             protocol icmp
-            description ""
+            description "from sadimer"
         }
     }
 }
